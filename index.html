@@ -6,6 +6,7 @@
   <title>ISO 27001 Templates — Carino Systems</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;700&family=Red+Hat+Display:wght@700;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg:           #050505;
@@ -90,10 +91,89 @@
       font-size: 0.82rem; color: var(--text-sec);
       font-family: 'IBM Plex Mono', monospace;
     }
-    .hero-stats { display: flex; gap: 24px; }
+    .hero-stats { display: flex; gap: 24px; align-items: center; }
     .hero-stat { text-align: right; }
     .hero-stat-num { font-family: 'Red Hat Display', sans-serif; font-size: 1.4rem; font-weight: 900; color: var(--accent); line-height: 1; }
     .hero-stat-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+
+    /* ─── PROGRESS ─────────────────────────────────────────── */
+    .hero-progress-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .hero-progress-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .hero-progress-nums { font-family: 'Red Hat Display', sans-serif; font-size: 1.4rem; font-weight: 900; color: var(--accent); line-height: 1; }
+    .hero-progress-bar-track {
+      width: 120px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .hero-progress-bar-fill {
+      height: 100%; background: var(--accent); border-radius: 2px;
+      transition: width 0.4s ease; width: 0%;
+    }
+    .cert-trigger-btn {
+      display: none; /* shown via JS when progress > 0 */
+      align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--accent-dim);
+      color: var(--accent); font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em;
+      padding: 0 12px; height: 28px; border-radius: 4px; cursor: pointer; transition: 0.2s;
+      white-space: nowrap;
+    }
+    .cert-trigger-btn:hover { background: var(--accent); color: #050505; }
+
+    /* ─── CHECKBOXES ─────────────────────────────────────── */
+    .tpl-chk { display: flex; align-items: center; cursor: pointer; flex-shrink: 0; padding: 2px; }
+    .tpl-chk input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+    .tpl-chk-box {
+      width: 16px; height: 16px;
+      border: 1.5px solid #2e2e2e; border-radius: 3px;
+      background: transparent; transition: 0.15s;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 900; color: transparent; flex-shrink: 0;
+    }
+    .tpl-chk:hover .tpl-chk-box { border-color: var(--accent); }
+    .tpl-chk input:checked + .tpl-chk-box { background: var(--accent); border-color: var(--accent); color: #050505; }
+    .tpl-chk input:checked + .tpl-chk-box::after { content: '✓'; }
+    .tpl-row.is-checked { background: rgba(234,179,8,0.025); }
+    .tpl-row.is-checked .tpl-row-title { color: var(--text-sec); }
+    .tpl-row.is-checked .tpl-row-action { color: var(--text-muted); }
+
+    /* ─── CERTIFICATE MODAL ──────────────────────────────── */
+    .cert-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; z-index: 600; padding: 20px;
+    }
+    .cert-overlay.open { display: flex; }
+    .cert-box {
+      background: #0a0a0a; border: 1px solid var(--accent-dim); border-radius: 10px;
+      width: 100%; max-width: 520px; padding: 36px;
+      box-shadow: 0 0 60px rgba(234,179,8,0.12);
+      display: flex; flex-direction: column; gap: 20px; text-align: center;
+    }
+    .cert-icon { font-size: 2.5rem; }
+    .cert-title { font-family: 'Red Hat Display', sans-serif; font-size: 1.6rem; font-weight: 900; color: var(--text); }
+    .cert-subtitle { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--text-sec); line-height: 1.6; }
+    .cert-input {
+      width: 100%; padding: 10px 14px; background: #111; border: 1px solid #262626;
+      border-radius: 6px; color: var(--text); font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.85rem; outline: none; text-align: center; transition: border-color 0.2s;
+    }
+    .cert-input:focus { border-color: var(--accent); }
+    .cert-input::placeholder { color: var(--text-muted); }
+    .cert-dl-btn {
+      width: 100%; padding: 12px; background: var(--accent); border: none; border-radius: 6px;
+      color: #050505; font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .cert-dl-btn:hover { opacity: 0.85; }
+    .cert-disclaimer {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: #555;
+      line-height: 1.6; border: 1px solid #1f1f1f; border-radius: 4px; padding: 12px; text-align: left;
+    }
+    .cert-close {
+      background: transparent; border: 1px solid #1f1f1f; color: var(--text-muted);
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; text-transform: uppercase;
+      letter-spacing: 0.08em; padding: 8px 16px; border-radius: 4px; cursor: pointer; transition: 0.2s;
+    }
+    .cert-close:hover { border-color: #555; color: var(--text-sec); }
 
     /* ─── BODY LAYOUT ────────────────────────────────────────── */
     .iso-body {
@@ -133,41 +213,84 @@
     .grid-area::-webkit-scrollbar { width: 4px; }
     .grid-area::-webkit-scrollbar-thumb { background: var(--border-hv); border-radius: 2px; }
 
-    .template-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 14px;
+    /* ─── TEMPLATE LIST ─────────────────────────────────── */
+    #templateGrid { display: flex; flex-direction: column; }
+
+    /* Category header (all-view) */
+    .tpl-cat-header {
+      display: flex; align-items: baseline; gap: 12px;
+      font-family: 'Red Hat Display', sans-serif;
+      font-size: 1rem; font-weight: 900; color: var(--accent);
+      padding: 22px 0 8px;
+      border-bottom: 2px solid var(--accent-dim);
+      margin-bottom: 2px;
+    }
+    .tpl-cat-header:first-child { padding-top: 4px; }
+    .tpl-cat-clause {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; font-weight: 400;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;
+      -webkit-text-fill-color: var(--text-muted);
     }
 
-    .tpl-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 20px;
+    /* Clause / section sub-header */
+    .tpl-group {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--text-muted);
+      padding: 16px 0 5px 44px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1px;
+    }
+
+    /* List row */
+    .tpl-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 11px 14px 11px 10px;
+      border-left: 3px solid transparent;
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
-      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-      display: flex; flex-direction: column; gap: 10px;
+      transition: background 0.12s, border-left-color 0.12s;
     }
-    .tpl-card:hover { border-color: var(--accent-dim); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .tpl-row:last-child { border-bottom: none; }
+    .tpl-row:hover { background: var(--surface); border-left-color: var(--accent); }
 
-    .tpl-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-    .tpl-name { font-size: 0.92rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .tpl-row-num {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
+      color: var(--text-muted); min-width: 22px; text-align: right;
+      flex-shrink: 0; padding-top: 1px;
+    }
+
+    .tpl-row-body { flex: 1; min-width: 0; }
+    .tpl-row-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+    .tpl-row-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; flex-wrap: wrap; }
+    .tpl-row-desc {
+      font-size: 0.73rem; color: var(--text-sec); margin-top: 3px;
+      line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .tpl-row-right { flex-shrink: 0; }
+    .tpl-row-action {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;
+      transition: color 0.12s; white-space: nowrap;
+    }
+    .tpl-row:hover .tpl-row-action { color: var(--accent); }
+
+    /* Shared badge + annex (used in rows) */
     .tpl-badge {
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-      padding: 2px 7px; border-radius: 3px; white-space: nowrap; flex-shrink: 0;
+      font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      padding: 1px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0;
     }
-    .badge-mandatory { color: #050505; background: var(--mandatory); }
-    .badge-recommended { color: #fff; background: var(--recommended); }
-    .badge-optional { color: #fff; background: var(--optional); }
+    .badge-mandatory    { color: #050505; background: var(--mandatory); }
+    .badge-recommended  { color: #fff; background: var(--recommended); }
+    .badge-optional     { color: #fff; background: var(--optional); }
+    .tpl-annex {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
+    }
 
-    .tpl-desc { font-size: 0.78rem; color: var(--text-sec); line-height: 1.6; }
-    .tpl-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
-    .tpl-annex { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-    .tpl-open {
-      font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem;
-      color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em;
-    }
+    /* ─── EMPTY STATE ────────────────────────────────────── */
 
     /* ─── MODAL ──────────────────────────────────────────────── */
     .modal-overlay {
@@ -267,9 +390,15 @@
     <span class="hero-desc">Ready-to-use ISMS templates. Click any card to view, copy, or download.</span>
   </div>
   <div class="hero-stats">
-    <div class="hero-stat"><div class="hero-stat-num" id="totalCount">24</div><div class="hero-stat-lbl">Templates</div></div>
+    <div class="hero-stat"><div class="hero-stat-num" id="totalCount">0</div><div class="hero-stat-lbl">Templates</div></div>
     <div class="hero-stat"><div class="hero-stat-num">5</div><div class="hero-stat-lbl">Categories</div></div>
     <div class="hero-stat"><div class="hero-stat-num">93</div><div class="hero-stat-lbl">Annex A Controls</div></div>
+    <div class="hero-progress-wrap">
+      <div class="hero-progress-nums"><span id="checkedCount">0</span> / <span id="totalCount2">0</span></div>
+      <div class="hero-progress-label">Completed</div>
+      <div class="hero-progress-bar-track"><div class="hero-progress-bar-fill" id="progressFill"></div></div>
+    </div>
+    <button class="cert-trigger-btn" id="certTrigger" onclick="openCertModal()">↓ Certificate</button>
   </div>
 </div>
 
@@ -2938,6 +3067,1316 @@ I confirm the above information is accurate to the best of my knowledge.
 Signed: _________________________ Date: _________________
 Name:   _________________________ Title: _________________
 `
+  },
+
+  /* ── NEW ANNEX A POLICIES ──────────────────────────────── */
+
+  {
+    id: 'pol-info-transfer', cat: 'policy',
+    name: 'Information Transfer Policy',
+    desc: 'Rules for securely transferring information via email, removable media, cloud, and other channels.',
+    annex: 'A.5.14', tier: 'mandatory',
+    content: `INFORMATION TRANSFER POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-011
+Version            : 1.0   Effective Date : [DATE]   Owner : CISO
+
+1. PURPOSE
+──────────
+Define the rules and minimum security controls for transferring information
+between [ORGANIZATION NAME] and external parties, or between internal systems,
+to protect confidentiality, integrity, and accountability.
+
+2. SCOPE
+─────────
+All employees, contractors, and third parties transferring organisational
+information via any channel: email, cloud storage, USB/media, API, fax, post.
+
+3. GENERAL PRINCIPLES
+──────────────────────
+• Information transferred must be classified and handled per the Data
+  Classification Policy. CONFIDENTIAL and SECRET require encryption.
+• The minimum necessary data principle applies — do not send more than needed.
+• All transfer mechanisms must be approved by IT before use.
+• Transfers of personal data require a legal basis (GDPR Art. 6 / Art. 9).
+• Cross-border transfer of personal data requires additional safeguards.
+
+4. APPROVED TRANSFER CHANNELS
+───────────────────────────────
+Channel              │ Max Classification │ Required Controls
+─────────────────────┼────────────────────┼──────────────────────────────────
+Corporate email      │ CONFIDENTIAL       │ TLS enforced; no bulk PII unencrypted
+Encrypted email      │ SECRET             │ S/MIME or PGP; recipient key verified
+Approved cloud share │ CONFIDENTIAL       │ MFA-protected link; expiry ≤ 30 days
+Secure file transfer │ SECRET             │ SFTP/FTPS/SCP; key-based auth
+Removable USB        │ INTERNAL           │ Hardware-encrypted USB ONLY (FIPS 140-2)
+Physical post        │ CONFIDENTIAL       │ Signed-for delivery; sealed envelope
+API (TLS 1.3)        │ CONFIDENTIAL       │ API key + mutual TLS for SECRET
+
+PROHIBITED:
+  ✗ Personal email (Gmail, Yahoo, etc.) for INTERNAL+ data
+  ✗ Consumer file sharing (personal Google Drive, Dropbox personal, WeTransfer)
+  ✗ Unencrypted USB drives for any classified data
+  ✗ Fax for CONFIDENTIAL+ data (unless encrypted fax / PSTN secure mode)
+  ✗ SMS/WhatsApp for CONFIDENTIAL+ data
+
+5. EMAIL SECURITY
+──────────────────
+• Large attachments (> [25 MB]): use approved file transfer platform, not email.
+• Misdirected email: if sent to wrong recipient, report to Security Team within
+  1 hour. Mark as potential data breach; begin containment.
+• Email DMARC/DKIM/SPF must be enforced on all sending domains.
+• External recipients of CONFIDENTIAL data: use encrypted email or secure portal.
+
+6. DATA SHARING AGREEMENTS
+────────────────────────────
+• All regular transfers of CONFIDENTIAL+ data to third parties require a signed
+  Data Sharing Agreement (DSA) or Data Processing Agreement (DPA).
+• One-off transfers: business justification approved by line manager + CISO.
+• Personal data to processors: DPA mandatory (GDPR Art. 28).
+
+7. TRANSFER LOGGING
+────────────────────
+• SFTP / secure file transfer: log all transfers (file, user, timestamp, destination).
+• Logs retained for [12] months; audited quarterly.
+• Mass export of customer data triggers SIEM alert for review.
+
+RECOMMENDATIONS
+─────────────────
+• Deploy a Data Loss Prevention (DLP) tool to automatically block or quarantine
+  sensitive data transferred via unapproved channels (email, cloud, USB).
+• Use a managed file transfer (MFT) platform for regular business-to-business
+  data exchange — it provides encryption, logging, and audit trails automatically.
+• Implement email data classification plugins (Microsoft Purview / Titus) so
+  staff see the classification level and receive prompts before external send.
+`
+  },
+  {
+    id: 'pol-cloud', cat: 'policy',
+    name: 'Cloud Security Policy',
+    desc: 'Security requirements for procuring, configuring, and exiting cloud services.',
+    annex: 'A.5.23', tier: 'recommended',
+    content: `CLOUD SECURITY POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-012
+Version            : 1.0   Effective Date : [DATE]   Owner : CISO
+
+1. PURPOSE
+──────────
+Establish security requirements for the acquisition, configuration, use,
+monitoring, and exit of cloud services, consistent with A.5.23.
+
+2. CLOUD PROCUREMENT REQUIREMENTS
+───────────────────────────────────
+Before any new cloud service is approved:
+□ Business owner identified and accountable for the service.
+□ Data classification of data that will be stored/processed determined.
+□ Supplier security assessment completed (Tier 1 if handling SECRET/PII).
+□ Data residency confirmed — data must remain in [APPROVED REGIONS].
+□ GDPR/legal basis confirmed for any personal data processed.
+□ Security questionnaire and DPA/Terms of Service reviewed by CISO + Legal.
+□ Offboarding/exit procedure documented before sign-up.
+Shadow IT is prohibited: staff must not create cloud accounts for org data
+without IT and CISO approval.
+
+3. SHARED RESPONSIBILITY
+─────────────────────────
+Cloud providers secure the INFRASTRUCTURE. [ORGANIZATION NAME] is responsible for:
+  • Identity and access management (who can log in)
+  • Data classification and protection within the service
+  • Configuration of security settings (not relying on defaults)
+  • Monitoring and logging of activity within the service
+  • Encryption keys (where customer-managed keys are used)
+  • Compliance with data protection laws for data you store
+
+4. CONFIGURATION BASELINE
+──────────────────────────
+All cloud environments must meet the following baseline:
+  □ MFA enforced for all admin and user accounts (FIDO2 preferred)
+  □ Cloud Security Posture Management (CSPM) tool deployed and active
+  □ No public storage buckets or shares without explicit CISO approval
+  □ Audit logging enabled and centralised in SIEM (CloudTrail / Activity Log)
+  □ Infrastructure-as-Code (IaC) for all infrastructure; no untracked manual changes
+  □ Least-privilege IAM: no standing root/global admin for operational use
+  □ Break-glass accounts: 2 accounts per environment; alert on use
+  □ Default VPC/virtual network configuration reviewed and hardened
+  □ Security groups / NSGs: default deny; explicit allow only
+  □ Key Management: customer-managed keys (CMK) for SECRET data; rotation enabled
+
+5. DATA PROTECTION IN CLOUD
+─────────────────────────────
+• Storage encryption: SSE-KMS with CMK for CONFIDENTIAL+; SSE with provider key acceptable for INTERNAL.
+• Data in transit: TLS 1.3 required for all API and user access.
+• Backup: enabled per Backup Policy; retention and restore tested quarterly.
+• Data sovereignty: production data must remain in [APPROVED_REGION(S)]; logging may be replicated.
+
+6. CLOUD EXIT / OFFBOARDING
+─────────────────────────────
+Before decommissioning any cloud service:
+□ Export/migrate all required data to approved storage.
+□ Obtain written confirmation of data deletion from provider.
+□ Revoke all access credentials and API keys.
+□ Terminate billing and remove payment methods.
+□ Archive audit logs per retention requirements before deletion.
+□ Update asset register and risk register.
+
+RECOMMENDATIONS
+─────────────────
+• Adopt the CIS Benchmarks for your cloud providers (AWS, Azure, GCP) as your
+  hardening baseline. They are free: https://www.cisecurity.org/cis-benchmarks
+• Deploy a CSPM tool (Microsoft Defender CSPM / Wiz / Prisma Cloud / free:
+  AWS Security Hub) to continuously monitor for misconfigurations.
+• Enforce IaC-only changes to production via CI/CD pipeline; no console exceptions.
+  This makes configuration drift impossible and provides change audit trail.
+`
+  },
+  {
+    id: 'pol-privacy', cat: 'policy',
+    name: 'Privacy & PII Protection Policy',
+    desc: 'Obligations for handling personal data lawfully, minimally, and securely in compliance with data protection laws.',
+    annex: 'A.5.34', tier: 'mandatory',
+    content: `PRIVACY AND PERSONAL DATA PROTECTION POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-013
+Version            : 1.0   Effective Date : [DATE]
+Owner              : Data Protection Officer (DPO) / CISO
+
+1. LEGAL BASIS AND SCOPE
+──────────────────────────
+[ORGANIZATION NAME] processes personal data subject to [GDPR / UK GDPR /
+CCPA / LGPD / applicable local law]. This policy applies to all personal
+data (PII) processed by or on behalf of [ORGANIZATION NAME].
+
+Personal data means any information relating to an identified or
+identifiable natural person (data subject).
+
+Special category data (health, biometric, racial origin, religion, etc.)
+is subject to additional restrictions — CISO and DPO approval required.
+
+2. DATA PROTECTION PRINCIPLES (GDPR Art. 5)
+─────────────────────────────────────────────
+Lawfulness, Fairness, Transparency : Process only with a valid legal basis; inform subjects.
+Purpose Limitation                 : Collect for specified purposes; no incompatible reuse.
+Data Minimisation                  : Collect only what is necessary for the stated purpose.
+Accuracy                           : Keep data accurate and up to date.
+Storage Limitation                 : Retain only as long as necessary; enforce retention.
+Integrity and Confidentiality      : Apply appropriate technical and organisational controls.
+Accountability                     : Document processing activities; demonstrate compliance.
+
+3. LEGAL BASES FOR PROCESSING
+───────────────────────────────
+[ORGANIZATION NAME] relies on the following legal bases:
+  • Contract (Art. 6(1)(b))   : Processing necessary to fulfil customer/employee contracts.
+  • Legal obligation (Art. 6(1)(c)): Payroll, tax, employment law compliance.
+  • Legitimate interests (Art. 6(1)(f)): Security monitoring, fraud prevention (IAB assessed).
+  • Consent (Art. 6(1)(a))    : Marketing, optional analytics (withdrawable at any time).
+
+4. DATA SUBJECT RIGHTS
+────────────────────────
+[ORGANIZATION NAME] must respond to data subject rights within 30 days:
+  Right of Access (Art. 15)         : Provide copy of data held.
+  Right to Rectification (Art. 16)  : Correct inaccurate data.
+  Right to Erasure (Art. 17)        : Delete data where no overriding grounds.
+  Right to Restriction (Art. 18)    : Limit processing where contested.
+  Right to Portability (Art. 20)    : Export data in machine-readable format.
+  Right to Object (Art. 21)         : Object to processing based on legitimate interests.
+  Rights re automated decisions (Art. 22): Humans must review significant automated decisions.
+
+Requests received by any channel (email, web form, verbal) must be directed
+to [dpo@organization.com / privacy portal] and logged immediately.
+Identity verification required before fulfilling access or erasure requests.
+
+5. DATA RETENTION
+──────────────────
+Data type                  │ Retention Period     │ Justification
+───────────────────────────┼──────────────────────┼──────────────────────────────
+Customer records           │ [7] years            │ Contract + tax law
+Employee HR records        │ [7] years post-exit  │ Employment law
+Job applicant data         │ [6] months           │ Recruitment process
+Marketing consent records  │ [3] years post-consent│ Accountability
+Audit logs                 │ [12] months online, [3] years archive │ Security
+CCTV footage               │ [30] days            │ Minimum necessary
+Financial records          │ [7] years            │ Tax law
+
+6. DATA BREACHES
+─────────────────
+Any suspected personal data breach must be reported to the DPO within 24 hours.
+The DPO assesses risk and determines:
+  • Whether [ICO / DPA] notification required (within 72 hours, GDPR Art. 33).
+  • Whether data subjects must be notified (Art. 34 — high risk).
+  • Whether cyber insurer notification is required.
+
+RECOMMENDATIONS
+─────────────────
+• Conduct a Data Protection Impact Assessment (DPIA) for any new high-risk
+  processing activity (large-scale profiling, special category data, etc.).
+  DPIA is mandatory under GDPR Art. 35 in many cases.
+• Maintain a Record of Processing Activities (RoPA) per GDPR Art. 30 —
+  this is mandatory for organisations with > 250 employees or high-risk processing.
+• Appoint a formal DPO if required (public authority, large-scale special category
+  processing, or large-scale monitoring of individuals).
+`
+  },
+  {
+    id: 'pol-hr-security', cat: 'policy',
+    name: 'HR Security Policy',
+    desc: 'Security obligations during recruitment screening, employment, role changes, and termination.',
+    annex: 'A.6.1 / A.6.2 / A.6.5', tier: 'mandatory',
+    content: `HR SECURITY POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-014
+Version            : 1.0   Effective Date : [DATE]   Owner : HR / CISO
+
+1. PURPOSE
+──────────
+Define security obligations across the full employee and contractor lifecycle
+to protect [ORGANIZATION NAME]'s information assets.
+
+2. PRE-EMPLOYMENT SCREENING (A.6.1)
+─────────────────────────────────────
+All candidates offered positions must undergo screening proportionate to
+the role's access to information assets and data sensitivity.
+
+Screening for ALL roles:
+  □ Identity verification (government-issued photo ID)
+  □ Right to work verification
+  □ Employment history verification (last [5] years)
+  □ Professional qualifications (if role-critical)
+
+Additional for CONFIDENTIAL/SECRET access roles:
+  □ Criminal record check (DBS / applicable jurisdiction)
+  □ Credit check (financial roles and those handling payments)
+  □ Reference checks: minimum [2] professional references
+  □ Social media screening (proportionate and documented)
+
+Contractors and third parties: equivalent screening required before access granted.
+Screening gaps: if screening cannot be completed before start, risk-accept with
+CISO approval; access restricted until complete.
+
+3. TERMS AND CONDITIONS OF EMPLOYMENT (A.6.2)
+───────────────────────────────────────────────
+All employment contracts and contractor agreements must include:
+  • Information security responsibilities clause
+  • Acceptable use of organisational systems
+  • Confidentiality obligations (survive termination; see NDA policy)
+  • Consequences of non-compliance (up to dismissal)
+  • Obligation to report security incidents and policy violations
+  • Reference to the Information Security Policy and related policies
+  • BYOD terms if applicable
+
+HR must ensure all new starters receive, read, and sign the IS Policy
+and Acceptable Use Policy before being granted system access.
+
+4. DURING EMPLOYMENT
+─────────────────────
+• Security awareness training: completed within 30 days of joining;
+  annual refresher mandatory for all staff (see Training Register).
+• Role changes: line manager notifies IT and HR minimum [3] days
+  before change; access rights reviewed same day as change.
+• Security incidents: staff have a duty to report per the Incident
+  Response Policy. Victimisation for good-faith reports is prohibited.
+• Disciplinary process (A.6.4): formal documented process for IS policy
+  violations. Severity of violation determines outcome:
+    Minor violation   : verbal/written warning; mandatory retraining
+    Serious violation : formal disciplinary; potential dismissal
+    Criminal activity : dismissal + law enforcement referral
+
+5. TERMINATION AND ROLE CHANGE (A.6.5)
+────────────────────────────────────────
+Responsibilities that survive termination:
+• Confidentiality obligations continue indefinitely for trade secrets
+  and for [5] years for general CONFIDENTIAL information.
+• Return of all assets: devices, badges, documents, keys.
+• NDA remains enforceable; legal team to pursue violations.
+
+HR offboarding checklist (coordinate with IT — see Access Control Policy):
+  □ Exit interview conducted; security topics covered
+  □ All devices returned and inventory signed
+  □ Employee briefed on post-employment confidentiality obligations
+  □ Reference to NDA and potential liability for breaches
+  □ Access termination confirmed by IT (signed receipt)
+
+RECOMMENDATIONS
+─────────────────
+• Automate the onboarding/offboarding workflow with HR system integration
+  (ServiceNow, Workday, or even a simple Google Form that triggers IT tickets).
+  Manual processes miss steps — especially access revocation for leavers.
+• Implement a 90-day "buddy check" for new joiners: line manager confirms they
+  have completed all mandatory training and understand their security duties.
+`
+  },
+  {
+    id: 'pol-nda', cat: 'policy',
+    name: 'Confidentiality Agreement (NDA)',
+    desc: 'Standard template for mutual and one-way non-disclosure agreements with employees, contractors, and partners.',
+    annex: 'A.6.6', tier: 'mandatory',
+    content: `NON-DISCLOSURE AND CONFIDENTIALITY AGREEMENT
+═══════════════════════════════════════════════════════════════════════════
+[Choose: MUTUAL / ONE-WAY]
+
+This Agreement is entered into as of [DATE] between:
+
+Disclosing Party : [ORGANIZATION NAME], [ADDRESS] ("the Company")
+Receiving Party  : [NAME / ORGANISATION], [ADDRESS] ("the Recipient")
+
+1. DEFINITION OF CONFIDENTIAL INFORMATION
+───────────────────────────────────────────
+"Confidential Information" means any non-public information disclosed by
+the Company to the Recipient, in any form, that is designated confidential
+or that reasonably should be understood to be confidential given the nature
+of the information, including but not limited to:
+  • Business plans, strategies, and financial projections
+  • Technical specifications, source code, and system architecture
+  • Customer lists, pricing, and commercial terms
+  • Employee, contractor, and patient/user personal data
+  • Security configurations, vulnerability assessments, and audit results
+  • Any information classified CONFIDENTIAL or SECRET under the Company's
+    Data Classification Policy
+
+Exclusions: Information that (a) is or becomes publicly known through no
+breach of this Agreement; (b) was rightfully in the Recipient's possession
+prior to disclosure; (c) is independently developed by the Recipient
+without reference to Confidential Information; (d) is required to be
+disclosed by law (with prior written notice to the Company where permitted).
+
+2. OBLIGATIONS OF THE RECIPIENT
+────────────────────────────────
+The Recipient agrees to:
+a) Use Confidential Information solely for [PURPOSE — e.g., evaluation of
+   a potential business relationship / performance of contracted services].
+b) Maintain the confidentiality of the Confidential Information using at
+   least the same standard of care as used to protect its own confidential
+   information, but no less than reasonable care.
+c) Not disclose Confidential Information to any third party without prior
+   written consent of the Company.
+d) Limit access to Confidential Information to those employees, contractors,
+   and agents who have a need to know for the stated purpose and who are
+   bound by obligations of confidentiality at least as protective as this Agreement.
+e) Promptly notify the Company upon discovery of any unauthorised use or
+   disclosure of Confidential Information.
+f) Return or destroy (at the Company's election) all Confidential Information
+   upon request or termination of the business relationship, and certify
+   completion in writing.
+
+3. TERM
+───────
+This Agreement shall remain in effect for [3] years from the date above,
+except that obligations with respect to trade secrets shall survive indefinitely.
+
+4. REMEDIES
+────────────
+The Recipient acknowledges that breach may cause irreparable harm for which
+monetary damages are an inadequate remedy. The Company is therefore entitled
+to seek injunctive relief without bond or other security.
+
+5. GOVERNING LAW
+─────────────────
+This Agreement shall be governed by the laws of [JURISDICTION / England and Wales].
+
+─────────────────────────────────────────────────────────────────────────
+SIGNED for and on behalf of [ORGANIZATION NAME]:
+
+Signature: ___________________  Name: _________________  Date: _________
+Title:     ___________________
+
+SIGNED by the Recipient:
+
+Signature: ___________________  Name: _________________  Date: _________
+Title:     ___________________
+Organisation: _______________________________________________
+`
+  },
+  {
+    id: 'pol-remote-work', cat: 'policy',
+    name: 'Remote Working Policy',
+    desc: 'Security requirements for employees working remotely, including home office and travel.',
+    annex: 'A.6.7', tier: 'mandatory',
+    content: `REMOTE WORKING POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-015
+Version            : 1.0   Effective Date : [DATE]   Owner : CISO / HR
+
+1. SCOPE
+─────────
+Applies to all employees, contractors, and third parties who access
+[ORGANIZATION NAME] systems or data from outside a company-controlled
+office environment.
+
+2. APPROVED DEVICES
+────────────────────
+• Work must be performed on company-owned or company-approved BYOD devices.
+• Company devices: must be enrolled in MDM; full-disk encryption required.
+• BYOD: must be enrolled in MDM; work profile separate from personal; AV installed.
+• Personal devices with no MDM: PROHIBITED for accessing CONFIDENTIAL+ data.
+• Printing confidential documents at home: PROHIBITED unless explicitly approved.
+
+3. NETWORK SECURITY
+────────────────────
+• VPN/ZTNA mandatory before accessing any corporate resources (exceptions: approved
+  public SaaS tools that enforce their own MFA).
+• Home Wi-Fi: WPA2/WPA3 required; device must not be on same segment as IoT devices.
+  Recommendation: use a separate SSID for work devices.
+• Public Wi-Fi (cafes, hotels, airports): VPN/ZTNA mandatory at all times.
+  Never connect to public networks without active VPN.
+• Mobile hotspot: acceptable as primary connection; VPN still required for corporate resources.
+
+4. PHYSICAL SECURITY AT HOME
+──────────────────────────────
+• Screen lock: automatic lock after 5 minutes of inactivity.
+• Screen privacy: use privacy screen filter where household members or others may view.
+• Confidential documents: store in lockable cabinet; do not leave visible.
+• Visitors: do not allow visitors to view or access work screens or documents.
+• End of work: log out of all work applications; lock workstation.
+
+5. TRAVEL SECURITY
+───────────────────
+• High-risk countries: notify CISO before travelling with company devices.
+  Additional controls (loaner device, encrypted partition) may apply.
+• Border crossing: customs may demand device access in some jurisdictions.
+  Notify CISO if device is accessed by authorities; treat as potential compromise.
+• Hotel room: do not leave devices unattended; use hotel safe if available.
+  Do not use hotel/conference Wi-Fi for corporate access without VPN.
+• Lost or stolen device: report to IT Security within 1 hour for remote wipe.
+
+6. DATA HANDLING
+─────────────────
+• Do not store work data on personal cloud storage or personal devices.
+• Downloads to local device: only if necessary; delete when task is complete.
+• Video calls: be aware of background — do not display whiteboards, screens,
+  or physical documents visible to video participants.
+• Physical documents: shred with approved shredder; do not place in household recycling.
+
+7. ACCEPTABLE PERSONAL USE
+────────────────────────────
+Limited personal use of a company device is acceptable if it does not:
+  • Compromise the security of the device
+  • Access inappropriate or illegal content
+  • Install unapproved software
+  • Interfere with work performance
+
+8. COMPLIANCE
+─────────────
+Employees must acknowledge this policy annually. Non-compliance may result in
+revocation of remote working privileges and/or disciplinary action.
+
+RECOMMENDATIONS
+─────────────────
+• Provide all remote workers with a hardware VPN token or FIDO2 key — this
+  removes the password-over-VPN attack surface and improves compliance.
+• Deploy endpoint detection and response (EDR) on all remote devices.
+  Remote workers are the #1 initial access vector for attackers.
+• Run quarterly phishing simulations targeting remote workers specifically —
+  they face different threats (home delivery phishing, fake VPN portals).
+`
+  },
+  {
+    id: 'pol-physical-security', cat: 'policy',
+    name: 'Physical Security Policy',
+    desc: 'Controls for physical security perimeters, entry, secure areas, equipment protection, and visitor management.',
+    annex: 'A.7.1 – A.7.6', tier: 'mandatory',
+    content: `PHYSICAL SECURITY POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-016
+Version            : 1.0   Effective Date : [DATE]   Owner : Facilities / CISO
+
+1. PHYSICAL SECURITY ZONES
+────────────────────────────
+[ORGANIZATION NAME] operates the following security zones:
+  Zone 0 — Public       : Reception, lobby, public areas. No access controls.
+  Zone 1 — Staff        : General office areas. Staff badge required.
+  Zone 2 — Restricted   : Server rooms, network closets, HR, finance. Named access only.
+  Zone 3 — Secure       : Any area holding SECRET data or critical infrastructure.
+                          Biometric + badge access; visitor log mandatory.
+
+2. PERIMETER CONTROLS (A.7.1)
+───────────────────────────────
+• All building entry/exit points: electronic access control (badge + PIN minimum).
+• Server rooms and Zone 2/3: dual-factor entry (badge + PIN or biometric).
+• Building exterior: adequate lighting; clear sightlines; CCTV coverage.
+• Fencing/barriers as appropriate for site risk profile.
+
+3. PHYSICAL ENTRY CONTROLS (A.7.2)
+─────────────────────────────────────
+• All staff must wear visible access badges at all times in the building.
+• Tailgating is prohibited. Staff must not hold doors open for unverified persons.
+• Visitors: signed in at reception; issued a dated visitor badge; escorted at all
+  times in Zone 2/3; signed out on departure.
+• Contractors: issued temporary access cards for duration of work; escorted in
+  Zone 3; access revoked on completion of work.
+• Lost badges: report within 2 hours; deactivate immediately.
+• Badge review: access rights reviewed annually; revoked when no longer required.
+
+4. SECURING OFFICES, ROOMS AND FACILITIES (A.7.3)
+────────────────────────────────────────────────────
+• Server rooms and network closets must be locked when unattended.
+• Key/card inventory maintained and reviewed monthly.
+• Environmental controls: UPS, air conditioning, fire suppression for server rooms.
+• Access logs reviewed monthly; anomalies reported to CISO.
+
+5. PHYSICAL SECURITY MONITORING (A.7.4)
+─────────────────────────────────────────
+• CCTV: installed at all entry/exit points and Zone 2/3 areas.
+• Retention: CCTV footage retained for [30] days minimum.
+• Monitoring: reviewed on request and following any incident.
+• Signs: visible CCTV notification displayed at all entry points.
+• Intrusion detection: on server rooms and after-hours office perimeter.
+
+6. PROTECTION AGAINST PHYSICAL AND ENVIRONMENTAL THREATS (A.7.5)
+────────────────────────────────────────────────────────────────────
+• Fire: suppression system; fire extinguishers; evacuation plan tested annually.
+• Flood: server equipment elevated; flood sensors in server room.
+• Power: UPS for all critical servers; generator for data centre.
+• Temperature: HVAC monitoring with alerting for server rooms.
+• Natural disaster: business continuity and DR plan tested annually.
+
+7. WORKING IN SECURE AREAS (A.7.6)
+─────────────────────────────────────
+• Solo working in Zone 3 is discouraged; buddy system for out-of-hours access.
+• Cameras, audio recorders, and mobile phones: restricted in Zone 3
+  (subject to local law and employee agreement).
+• Work in secure areas must be supervised or logged; no unsupervised contractor access.
+
+RECOMMENDATIONS
+─────────────────
+• Use anti-piggybacking/tailgating barriers (speed gates) at main office entry —
+  tailgating is the most common physical security breach in offices.
+• Implement a visitor management system with pre-registration and photo ID capture.
+• Annual penetration test of physical security (red team physical assessment) is
+  highly valuable — most organisations are surprised by how easy physical access is.
+`
+  },
+  {
+    id: 'pol-clear-desk', cat: 'policy',
+    name: 'Clear Desk and Clear Screen Policy',
+    desc: 'Rules requiring staff to secure physical documents and lock screens when unattended.',
+    annex: 'A.7.7', tier: 'mandatory',
+    content: `CLEAR DESK AND CLEAR SCREEN POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-017
+Version            : 1.0   Effective Date : [DATE]   Owner : CISO / Facilities
+
+1. PURPOSE
+──────────
+Prevent unauthorised access to information left visible on desks or screens
+when workstations are unattended, reducing the risk of shoulder-surfing,
+opportunistic data theft, and inadvertent data disclosure.
+
+2. CLEAR DESK REQUIREMENTS
+────────────────────────────
+DURING THE WORKING DAY (when leaving a desk, even briefly):
+  □ Lock workstation screen (Windows: Win+L / Mac: Ctrl+Cmd+Q)
+  □ Turn papers face-down or place in a drawer if leaving for > 2 minutes
+  □ Never leave access cards/keys on an unattended desk
+
+END OF WORKING DAY (mandatory):
+  □ All papers and portable media locked in a drawer or filing cabinet
+  □ No printed documents left on printers or copiers
+  □ Whiteboards containing sensitive information wiped clean
+  □ Physical keys and access cards stored securely
+  □ Workstation locked (log out for end of day)
+  □ Laptop lid closed (physical barrier) — or laptop locked in drawer/secure cabinet
+
+DOCUMENT CLASSIFICATION ON DESKS:
+  PUBLIC / INTERNAL  : May be on desk during working hours; cleared at end of day
+  CONFIDENTIAL       : Store face-down when not actively reading; locked away when absent
+  SECRET             : Never left unattended; stored in locked safe when not in use
+
+3. CLEAR SCREEN REQUIREMENTS
+──────────────────────────────
+• Automatic screen lock: configured on all workstations — [5] minutes idle lock.
+• Manual lock: required whenever leaving workstation, even for 1 minute.
+• Privacy screens: required for hot-desk areas, open-plan offices, and travel.
+• External monitors: covered or turned off when not in use in shared spaces.
+• Video calls: be aware of background; confidential content should not be visible
+  to video participants without need-to-know.
+
+4. PRINTING CONTROLS
+──────────────────────
+• CONFIDENTIAL+ documents: use Follow-Me / pull printing (collect at printer with badge).
+• Uncollected print jobs: automatically deleted after [5] minutes.
+• Printed documents: collected immediately upon printing; never left at printer.
+• Disposal: cross-cut shredder or confidential waste bin (not regular recycling).
+
+5. COMPLIANCE CHECKS
+─────────────────────
+• Compliance walk-arounds: conducted monthly (unannounced) by Security/Facilities.
+• Results recorded and escalated to line manager for repeat violations.
+• Clear desk compliance included in annual security awareness assessment.
+
+RECOMMENDATIONS
+─────────────────
+• Implement Follow-Me printing across all office printers. This single control
+  eliminates the printer as a confidential data exposure point.
+• Make screen-lock shortcuts part of onboarding training — muscle memory is key.
+  Consider a short awareness campaign: "Lock when you walk" (e.g., Win+L screensaver).
+• Place confidential waste bins (cross-cut shredder bins) at regular intervals
+  across the office floor so staff never have an excuse to use regular bins.
+`
+  },
+  {
+    id: 'pol-media-disposal', cat: 'policy',
+    name: 'Storage Media & Secure Disposal Policy',
+    desc: 'Lifecycle management of storage media from acquisition through secure sanitisation and certified disposal.',
+    annex: 'A.7.10 / A.7.14', tier: 'mandatory',
+    content: `STORAGE MEDIA AND SECURE DISPOSAL POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-018
+Version            : 1.0   Effective Date : [DATE]   Owner : IT Manager / CISO
+
+1. SCOPE
+─────────
+All storage media containing organisational data: HDDs, SSDs, USB drives,
+tapes, optical media, mobile phones, tablets, laptops, printers (internal storage),
+photocopiers, and cloud storage volumes.
+
+2. MEDIA CLASSIFICATION AND LABELLING
+───────────────────────────────────────
+All removable media must be labelled with:
+  • Owner/department
+  • Classification level
+  • Date of last use
+  • Asset tag or unique ID
+
+Unlabelled removable media found in the organisation is treated as CONFIDENTIAL
+and referred to IT for identification and secure handling.
+
+3. APPROVED MEDIA TYPES
+────────────────────────
+• Removable USB: hardware-encrypted USB drives ONLY (FIPS 140-2 Level 3 preferred).
+  Unencrypted USB drives: PROHIBITED for any data transfer.
+• External HDDs: encrypted; approved models listed at [IT asset catalogue].
+• Cloud storage: approved services only (see Cloud Security Policy).
+• Tapes (backup): encrypted with AES-256; stored off-site in locked container.
+
+4. MEDIA IN USE CONTROLS
+─────────────────────────
+• Media inventory: all issued removable media recorded in the asset register.
+• Media in transit: CONFIDENTIAL+ media transported in tamper-evident packaging.
+• Loss/theft: report within 1 hour; treat as potential data breach.
+• Borrowing: log any media taken off-site (user, date, return date).
+
+5. SANITISATION STANDARDS
+──────────────────────────
+Before any media is reused, repurposed, repaired, returned, or disposed of,
+data must be sanitised to the appropriate level:
+
+Classification on Media │ Sanitisation Method                │ Standard
+────────────────────────┼────────────────────────────────────┼────────────────────────
+INTERNAL                │ NIST Purge (overwrite) or degauss   │ NIST SP 800-88 Rev.1
+CONFIDENTIAL            │ Cryptographic erasure + verification│ NIST SP 800-88 Rev.1
+SECRET                  │ Physical destruction (shredding)    │ NSA/CSS EPL; CESG listed
+
+Cryptographic erasure: If full-disk encryption was in use from first use,
+deleting/rotating the encryption key is an approved sanitisation method for
+SSDs (where overwrite is unreliable).
+
+SSD sanitisation: Overwriting is UNRELIABLE on SSDs due to wear levelling.
+Use manufacturer Secure Erase command, cryptographic erasure, or physical destruction.
+
+6. DISPOSAL AND DESTRUCTION
+────────────────────────────
+• INTERNAL media: clear data with approved tool; recycle through approved IT recycler.
+• CONFIDENTIAL media: cryptographic erasure + certificate of destruction from approved supplier.
+• SECRET media: physical shredding to DIN 66399 Level H-5 (particle size ≤ 30 mm²) or
+  incineration; witnessed; certificate of destruction required.
+• Approved destruction suppliers: [SUPPLIER NAME(S)] — ADISA-certified preferred.
+• Certificate of destruction: retained for [7] years in the asset register.
+
+7. DECOMMISSIONING CHECKLIST
+──────────────────────────────
+□ Data backup confirmed (if required)
+□ Device removed from MDM/asset management
+□ Sanitisation performed to correct level and documented
+□ Certificate of destruction obtained (for CONFIDENTIAL+)
+□ Asset register updated; device status set to "Disposed"
+□ Serial number retained for audit trail
+
+RECOMMENDATIONS
+─────────────────
+• Never donate or sell old IT equipment without verified data sanitisation.
+  "Factory reset" on consumer devices does NOT securely erase data — always
+  use a specialist tool (DBAN for HDDs, manufacturer Secure Erase for SSDs).
+• Partner with an ADISA-certified (UK) or NAID-certified (US) IT asset
+  disposition (ITAD) company for guaranteed chain-of-custody and certified destruction.
+`
+  },
+  {
+    id: 'pol-endpoint', cat: 'policy',
+    name: 'Endpoint & Mobile Device Policy',
+    desc: 'Security baseline for all user endpoint devices including laptops, desktops, tablets, and mobile phones.',
+    annex: 'A.8.1', tier: 'mandatory',
+    content: `ENDPOINT AND MOBILE DEVICE POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-019
+Version            : 1.0   Effective Date : [DATE]   Owner : IT Manager / CISO
+
+1. SCOPE
+─────────
+All devices used to access organisational systems or data: company-owned
+laptops, desktops, tablets, smartphones; approved BYOD devices.
+
+2. DEVICE PROCUREMENT AND CONFIGURATION
+─────────────────────────────────────────
+• All company devices procured through IT. No personal devices without MDM approval.
+• Devices configured from a hardened image before issuance.
+• Baseline configuration (all managed endpoints):
+  □ Full-disk encryption: BitLocker (TPM+PIN) / FileVault / LUKS
+  □ MDM enrolment: [Intune / Jamf / Kandji / ManageEngine]
+  □ EDR agent: [CrowdStrike / Defender for Endpoint / SentinelOne]
+  □ Auto-lock: 5 minutes (mobile), 10 minutes (laptop)
+  □ Strong screen PIN/password: minimum 6-digit PIN (mobile); 16-char passphrase (laptop)
+  □ Remote wipe capability: confirmed before device issued
+  □ Automatic OS patching: enabled; critical patches applied within 24 hours
+  □ Firewall: enabled and policy-locked
+  □ Local admin access: disabled for standard users
+
+3. APPROVED SOFTWARE
+─────────────────────
+• Only software from the approved software catalogue may be installed.
+• Requests for new software: submit via IT request form; reviewed within [5] days.
+• Unlicensed or personal software: PROHIBITED on company devices.
+• Browser extensions: only from approved list (reviewed quarterly by IT).
+• Development tools: additional approval required; reviewed for security implications.
+
+4. MOBILE DEVICE SPECIFIC REQUIREMENTS
+────────────────────────────────────────
+• Work profile separate from personal (Android enterprise / Apple MDM supervised).
+• Corporate data accessible only via MDM-managed apps.
+• Jailbroken/rooted devices: PROHIBITED from accessing corporate resources.
+• Lost or stolen phone: report immediately; remote wipe executed within 4 hours.
+
+5. BYOD (BRING YOUR OWN DEVICE)
+────────────────────────────────
+BYOD devices may access corporate resources only if:
+  □ MDM profile installed and maintained
+  □ OS version current (maximum 1 major version behind current)
+  □ Device PIN/biometric authentication enabled
+  □ Remote wipe accepted (work profile data only, not personal data)
+  □ Acceptable Use Policy signed with BYOD addendum
+BYOD devices have no expectation of privacy on the work profile/container.
+
+6. PATCH AND VULNERABILITY MANAGEMENT
+───────────────────────────────────────
+• Critical OS patches: applied within 24 hours of release.
+• High patches: applied within 7 days.
+• Patch compliance monitored via MDM dashboard weekly.
+• Non-compliant devices: quarantined from network access after [7]-day grace period.
+
+7. DEVICE LIFECYCLE
+────────────────────
+• All devices registered in the asset register on procurement.
+• End-of-life: data sanitisation per Storage Media Policy before disposal.
+• Lost/stolen: report to IT within 1 hour; remote wipe; update asset register; report if data loss.
+
+RECOMMENDATIONS
+─────────────────
+• Deploy EDR (Endpoint Detection and Response) on every managed endpoint.
+  EDR provides the telemetry needed to detect and respond to ransomware,
+  lateral movement, and credential theft that AV alone cannot catch.
+• Implement application allowlisting for high-security roles (finance, executives):
+  only approved applications may execute — eliminates most malware delivery paths.
+• Use Microsoft Defender for Business (included in M365 Business Premium at ~£20/user/month)
+  for integrated MDM + EDR + Vulnerability Management if budget is tight.
+`
+  },
+  {
+    id: 'pol-malware', cat: 'policy',
+    name: 'Malware Protection Policy',
+    desc: 'Requirements for anti-malware controls, web filtering, and security awareness to prevent malicious code.',
+    annex: 'A.8.7', tier: 'mandatory',
+    content: `MALWARE PROTECTION POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-020
+Version            : 1.0   Effective Date : [DATE]   Owner : IT Manager / CISO
+
+1. PURPOSE
+──────────
+Protect [ORGANIZATION NAME]'s information systems from malware including
+viruses, worms, ransomware, spyware, trojans, rootkits, and other malicious code,
+through technical controls and user awareness.
+
+2. ANTI-MALWARE CONTROLS
+──────────────────────────
+All endpoints, servers, and email gateways must have:
+  □ Approved anti-malware / EDR solution deployed (see approved list)
+  □ Real-time scanning: enabled; cannot be disabled by users
+  □ Signature updates: automated; applied within [4] hours of release
+  □ Scheduled full scan: weekly (off-hours)
+  □ Quarantine: malicious files quarantined; IT alerted automatically
+
+Approved solutions: [CrowdStrike / Microsoft Defender + Defender for Endpoint /
+SentinelOne / Sophos Intercept X]
+
+Exceptions: cannot disable anti-malware without CISO written approval and
+compensating controls documented.
+
+3. EMAIL SECURITY
+──────────────────
+• Advanced email security gateway deployed (spam, phishing, malware filtering).
+• Attachment filtering: executable file types (.exe, .vbs, .bat, .ps1, etc.) blocked
+  by default; exceptions require IT approval per request.
+• URL rewriting and time-of-click analysis: enabled.
+• Sandboxing for suspicious attachments: enabled.
+• DMARC / DKIM / SPF enforced for all sending domains.
+
+4. WEB FILTERING
+─────────────────
+• DNS-based or proxy-based web filtering deployed on all managed endpoints.
+• Categories blocked by default: malware distribution, phishing, adult content,
+  illegal content, anonymisation proxies.
+• HTTPS inspection: deployed for managed devices where legally permissible;
+  employees notified in Acceptable Use Policy.
+• Policy review: blocked categories reviewed quarterly.
+
+5. REMOVABLE MEDIA
+───────────────────
+• All removable media scanned before access (automatic on connection).
+• Unapproved/unscanned media: blocked by endpoint policy.
+• AutoRun/AutoPlay: disabled on all endpoints.
+
+6. SOFTWARE AND PATCHING
+──────────────────────────
+• Only approved software installed (see Endpoint Policy).
+• Vulnerabilities patched per the Vulnerability Management Procedure.
+• Zero-day threats: CISO may invoke emergency patching without CAB approval.
+
+7. USER RESPONSIBILITIES
+──────────────────────────
+All users must:
+• Not attempt to disable or bypass anti-malware controls.
+• Report suspected malware symptoms immediately (slow device, unexpected pop-ups,
+  encrypted files, ransomware notes) — do not power off, call IT immediately.
+• Not open attachments from unexpected or suspicious sources.
+• Not download software from unofficial sources.
+
+8. INCIDENT RESPONSE
+─────────────────────
+Malware detection triggers the Incident Response Policy.
+Ransomware: follow the Ransomware Playbook in the IR Policy.
+Endpoint isolation: IT may remotely isolate any endpoint suspected of malware
+infection without prior approval from the user or their manager.
+
+RECOMMENDATIONS
+─────────────────
+• Move from traditional AV to EDR. Signature-based AV misses most modern threats.
+  EDR provides behavioural detection, ransomware rollback, and forensic telemetry.
+• Implement phishing-resistant MFA (FIDO2) organisation-wide. Most malware delivery
+  relies on credential theft via phishing — FIDO2 eliminates this attack path.
+• Run quarterly phishing simulations (internal or via [KnowBe4 / Proofpoint /
+  Cofense]). Click-through rate target: < 5%. Report rate target: > 75%.
+`
+  },
+  {
+    id: 'pol-backup', cat: 'policy',
+    name: 'Information Backup Policy',
+    desc: 'Requirements for backup frequency, retention, encryption, offsite storage, and restore testing.',
+    annex: 'A.8.13', tier: 'mandatory',
+    content: `INFORMATION BACKUP POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-021
+Version            : 1.0   Effective Date : [DATE]   Owner : IT Manager / CISO
+
+1. PURPOSE
+──────────
+Ensure that critical information and systems can be recovered within agreed
+timeframes following data loss, corruption, ransomware, or disaster, by
+maintaining secure, tested, and accessible backups.
+
+2. SCOPE
+─────────
+All information assets within the ISMS scope, with priority on:
+  Tier 1 (Critical) : Customer databases, financial data, identity infrastructure,
+                      source code repositories, configuration management databases.
+  Tier 2 (Important): Employee data, operational data, email, shared drives.
+  Tier 3 (Standard) : Development/test environments, non-sensitive archives.
+
+3. BACKUP REQUIREMENTS
+───────────────────────
+Schedule:
+  Tier 1: Continuous replication OR hourly snapshots; daily full backup
+  Tier 2: Daily incremental; weekly full backup
+  Tier 3: Weekly incremental; monthly full backup
+
+Retention:
+  Tier 1: [90] days online; [7] years for compliance archives (financial, legal)
+  Tier 2: [30] days online; [3] years archive
+  Tier 3: [14] days online
+
+Recovery Objectives (link to BCP):
+  System     │ RTO      │ RPO
+  ───────────┼──────────┼──────────────────
+  [SYSTEM A] │ [4 hrs]  │ [1 hr]
+  [SYSTEM B] │ [24 hrs] │ [4 hrs]
+  [SYSTEM C] │ [72 hrs] │ [24 hrs]
+
+4. BACKUP SECURITY
+───────────────────
+• Encryption: all backups encrypted at rest (AES-256) and in transit (TLS 1.3).
+• Keys: backup encryption keys stored separately from backup data.
+• Immutability: at least one backup copy must be immutable (cannot be deleted
+  or modified for the retention period):
+    - Cloud: AWS S3 Object Lock / Azure Blob immutable storage / GCP WORM
+    - Tape: air-gapped off-site
+  Rationale: ransomware groups specifically target and delete connected backups.
+• Access: backup systems accessible only to authorised IT personnel.
+  Backup console/admin access requires MFA and is JIT where possible.
+• Off-site/separate region: at least one backup copy stored in a geographically
+  separate location / cloud region from the primary environment.
+• Segregation: backup infrastructure on separate network segment from production.
+
+5. RESTORE TESTING
+───────────────────
+Untested backups are not backups. All Tier 1 and Tier 2 systems must have
+restore tests conducted on the following schedule:
+  Tier 1: Full restore test quarterly; spot restore test monthly
+  Tier 2: Full restore test bi-annually
+
+Restore test process:
+  □ Identify target system/data for test
+  □ Restore to isolated test environment (not production)
+  □ Verify data integrity and completeness
+  □ Measure actual restore time vs. RTO target
+  □ Document results and any discrepancies
+  □ Correct identified gaps; re-test if failures found
+
+6. BACKUP MONITORING
+─────────────────────
+• All backup jobs: success/failure logged and reviewed daily.
+• Failed backups: alert to IT manager within 1 hour; investigate and remediate.
+• Backup completion report: reviewed weekly by IT Manager; monthly by CISO.
+
+RECOMMENDATIONS
+─────────────────
+• Follow the 3-2-1-1-0 rule: 3 copies of data, on 2 different media types,
+  1 off-site, 1 immutable/air-gapped, 0 errors on last restore test.
+• The immutable backup is your ransomware insurance policy. Without it,
+  backup deletion is the #1 attacker action before deploying ransomware.
+• Test restore speed, not just restore success. Many organisations discover
+  their 4-hour RTO is actually 48 hours only during a real incident.
+`
+  },
+  {
+    id: 'pol-logging', cat: 'policy',
+    name: 'Logging and Monitoring Policy',
+    desc: 'Requirements for generating, protecting, retaining, and reviewing security logs across all systems.',
+    annex: 'A.8.15 / A.8.16', tier: 'mandatory',
+    content: `LOGGING AND MONITORING POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-022
+Version            : 1.0   Effective Date : [DATE]   Owner : CISO / IT Manager
+
+1. PURPOSE
+──────────
+Ensure that security-relevant events are logged, protected from tampering,
+retained for appropriate periods, and reviewed to detect threats and support
+incident investigation.
+
+2. WHAT MUST BE LOGGED
+───────────────────────
+All systems within ISMS scope must log the following:
+
+Authentication events:
+  • Successful and failed login attempts (user, timestamp, source IP)
+  • MFA success and failure
+  • Privilege escalation (sudo, RunAs, JIT access grant)
+  • Account lockouts and unlocks
+
+Access events:
+  • Access to CONFIDENTIAL and SECRET data
+  • Privileged account activity (all commands on Tier-0/1 infrastructure)
+  • File access and modification on sensitive shares
+  • Database queries accessing personal data or financial records
+
+Network events:
+  • Firewall permit and deny logs
+  • VPN/ZTNA connection events
+  • DNS queries (for threat detection)
+  • Outbound connections to suspicious/new external destinations
+
+System events:
+  • System start/shutdown, service start/stop
+  • Software installation and configuration changes
+  • Patch application and failure
+  • Backup success and failure
+
+Cloud events:
+  • All AWS CloudTrail / Azure Activity Log / GCP Audit Log events
+  • IAM role assumption and permission changes
+  • Storage access and public bucket creation
+  • API Gateway calls to production endpoints
+
+3. LOG PROTECTION
+──────────────────
+• Logs must be tamper-resistant: write-once or append-only where possible.
+• Log forwarding: all logs centralised to SIEM within [5] minutes of generation.
+• Access to raw logs: restricted to Security Team and IT Manager.
+• Log integrity: SIEM detects log forwarding failures and gaps; alert on silence.
+• Encryption: logs encrypted in transit and at rest in SIEM.
+
+4. LOG RETENTION
+─────────────────
+Log Type                    │ Online (SIEM)  │ Archive
+────────────────────────────┼────────────────┼────────────────
+Security logs (auth, access)│ 12 months      │ 3 years
+Cloud audit logs            │ 12 months      │ 3 years
+Firewall/network logs       │ 6 months       │ 2 years
+Application logs            │ 3 months       │ 1 year
+Backup/system event logs    │ 3 months       │ 1 year
+Incident-related logs       │ Preserved indefinitely until case closed
+
+5. MONITORING AND ALERTING
+────────────────────────────
+The SIEM must generate alerts (reviewed by Security Team) for:
+  □ Multiple failed login attempts (≥ [5] in [10] minutes)
+  □ Login from new country or unusual location
+  □ Access to SECRET data outside normal hours
+  □ Bulk data export or download
+  □ Privileged account usage without JIT request
+  □ New admin account creation
+  □ Mass file deletion (ransomware indicator)
+  □ Outbound connection to known malicious IPs/domains (threat intel feed)
+  □ Log forwarding gap or agent silence (> [15] minutes)
+
+Alert review: P1/P2 alerts require acknowledgement within [30] minutes (24/7).
+Monitoring schedule: SIEM dashboard reviewed daily by Security Team.
+
+6. CLOCK SYNCHRONISATION (A.8.17)
+───────────────────────────────────
+• All systems must synchronise to approved NTP servers (Stratum 2 or better).
+• NTP source: [organisation's NTP servers or public pool.ntp.org].
+• Maximum drift: ± 1 second. Alerts on drift > 60 seconds.
+• Consistent timezone: all logs in UTC; local display applied in SIEM.
+
+RECOMMENDATIONS
+─────────────────
+• Deploy a SIEM before you need it — standing up a SIEM during an incident
+  is too late. Microsoft Sentinel (pay-per-GB) or Elastic SIEM (free, self-hosted)
+  are both viable options at different budget levels.
+• Enable User and Entity Behaviour Analytics (UEBA) in your SIEM — it detects
+  compromised accounts through anomalous behaviour (lateral movement, odd hours,
+  bulk downloads) that rule-based alerting misses.
+• Ingest threat intelligence feeds (MISP, Recorded Future, AlienVault OTX) into
+  your SIEM to automatically flag connections to known bad infrastructure.
+`
+  },
+  {
+    id: 'pol-network', cat: 'policy',
+    name: 'Network Security Policy',
+    desc: 'Requirements for network architecture, segmentation, firewall rules, wireless security, and network monitoring.',
+    annex: 'A.8.20 / A.8.21 / A.8.22', tier: 'mandatory',
+    content: `NETWORK SECURITY POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-023
+Version            : 1.0   Effective Date : [DATE]   Owner : IT Manager / CISO
+
+1. NETWORK ARCHITECTURE PRINCIPLES
+────────────────────────────────────
+• Defence-in-depth: multiple independent layers; no single point of failure.
+• Least privilege routing: systems communicate only on required ports to required destinations.
+• Default deny: all network traffic is denied unless explicitly permitted.
+• Segmentation: networks divided into zones by sensitivity and function.
+• Zero-trust: network location does not grant implicit trust.
+
+2. NETWORK SEGMENTATION (A.8.22)
+──────────────────────────────────
+Segment                 │ Systems                              │ Access
+────────────────────────┼──────────────────────────────────────┼──────────────────────────────
+Management (OOB)        │ Network devices, IPMI, console ports │ IT Admin via jump host only
+Server (Production)     │ Application and database servers     │ App servers → DB; no direct user
+Server (DMZ)            │ Web servers, load balancers, APIs    │ Internet-facing; no access to internal
+Identity                │ AD/LDAP, PKI, PAM                   │ Strictly controlled; no direct internet
+Endpoint                │ User workstations                   │ Access to services; internet via proxy
+Guest / Visitor         │ Guest Wi-Fi                         │ Internet only; isolated from internal
+OT / IoT (if applicable)│ Building systems, cameras, printers │ Isolated; no access to IT network
+
+VLAN assignment enforced at network level; VLANs not the only control (also firewall).
+
+3. FIREWALL AND ACCESS CONTROL
+────────────────────────────────
+• Stateful firewalls at all network zone boundaries.
+• Next-Generation Firewall (NGFW) with application identification at internet boundary.
+• Rule management:
+  - All rules approved through Change Management before implementation.
+  - "Any/Any" rules: PROHIBITED. All rules specify source, destination, port, and protocol.
+  - Temporary rules: maximum 90-day validity; reviewed quarterly.
+  - Annual rule review: all rules justified or removed.
+• Inbound access: only explicitly required services exposed. All unnecessary ports closed.
+• Outbound filtering: whitelist approach for server traffic; proxy for user traffic.
+
+4. WIRELESS NETWORK SECURITY
+──────────────────────────────
+• Encryption: WPA3 required for all new deployments; WPA2-Enterprise minimum.
+  WEP and WPA are PROHIBITED.
+• Authentication: 802.1X (RADIUS) for corporate Wi-Fi. Certificate-based preferred.
+• Separate SSIDs: corporate, guest, IoT/OT. Each on isolated VLAN.
+• Guest Wi-Fi: no access to internal resources. Captive portal with legal notice.
+• Access points: managed centrally; rogue AP detection enabled.
+• Site survey: conducted on installation; rogue AP scan monthly.
+
+5. REMOTE ACCESS (A.8.21 — Network services)
+──────────────────────────────────────────────
+• All remote access via ZTNA or VPN with MFA.
+• No direct public-facing RDP/SSH on production servers.
+• Jump host / bastion: required for all admin access to production systems.
+• Split tunnelling: prohibited for corporate resources access.
+
+6. DNS SECURITY
+────────────────
+• Internal DNS: do not expose internal zone data externally (split DNS).
+• External DNS: DNSSEC enabled for all public domains.
+• DNS filtering: enforced for all managed endpoints via DNS firewall / RPZ.
+• DNS over HTTPS (DoH): managed via policy (not bypassing DNS filter).
+
+7. NETWORK MONITORING
+──────────────────────
+• Network traffic analysis (NTA): deployed at key choke points.
+• IDS/IPS: deployed at internet boundary; signatures updated daily.
+• Flow data (NetFlow/IPFIX): collected from all routers and switches; retained 90 days.
+• Anomaly detection: automated alerts on unusual traffic volumes or new connections.
+
+RECOMMENDATIONS
+─────────────────
+• Conduct annual internal and external network penetration tests.
+  External test: verify what attackers see from the internet.
+  Internal test: verify segmentation and lateral movement controls.
+• Implement network access control (NAC) — only devices that are managed and
+  compliant can connect to the corporate network. Rogue/unmanaged devices blocked.
+• Consider SASE (Secure Access Service Edge) for cloud-first organisations —
+  combines ZTNA, SWG, CASB, and FWaaS in a single cloud-delivered platform.
+`
+  },
+  {
+    id: 'pol-ssdlc', cat: 'policy',
+    name: 'Secure Development Policy',
+    desc: 'Security requirements for the full software development lifecycle including design, coding, testing, and deployment.',
+    annex: 'A.8.25 – A.8.29', tier: 'recommended',
+    content: `SECURE DEVELOPMENT POLICY
+═══════════════════════════════════════════════════════════════════════════
+Document Reference : [ORG]-POL-024
+Version            : 1.0   Effective Date : [DATE]   Owner : CISO / Engineering Lead
+
+1. PURPOSE
+──────────
+Embed security into the software development lifecycle (SDLC) to prevent
+security vulnerabilities from being introduced, detect them early, and
+reduce the cost of remediation.
+
+2. SECURE DESIGN PRINCIPLES (A.8.27)
+──────────────────────────────────────
+All new systems and significant changes must apply:
+  • Least Privilege      : Applications request only permissions they need.
+  • Defence in Depth     : Multiple independent security layers.
+  • Fail Securely        : On error, default to secure state (deny, not permit).
+  • Input Validation     : Validate and sanitise all external input.
+  • Output Encoding      : Encode all output to prevent injection (XSS, SQL, etc.).
+  • Separation of Duties : Admin functions separated from user functions.
+  • Minimise Attack Surface: Disable features not in use; expose minimal interfaces.
+  • OWASP Top 10        : Address all OWASP Top 10 vulnerabilities in design phase.
+
+Threat modelling: conducted for all new systems and major changes. Document:
+  threat actors, attack vectors, mitigations. STRIDE methodology recommended.
+
+3. SECURITY REQUIREMENTS (A.8.26)
+────────────────────────────────────
+Security requirements must be defined before development begins:
+  □ Authentication and authorisation requirements
+  □ Data classification of data handled; encryption requirements
+  □ Audit logging requirements
+  □ Input validation and output encoding requirements
+  □ Error handling (must not expose stack traces, credentials, or system info)
+  □ Session management requirements
+  □ API security requirements (authentication, rate limiting, input validation)
+  □ Compliance requirements (GDPR, PCI-DSS, HIPAA as applicable)
+
+4. SECURE CODING STANDARDS (A.8.28)
+──────────────────────────────────────
+All developers must follow:
+  • OWASP Secure Coding Practices (https://owasp.org/www-project-secure-coding-practices-quick-reference-guide/)
+  • Language-specific security guidelines:
+      Python  : Bandit; avoid eval(), use parameterised queries
+      Java    : SpotBugs + FindSecBugs; avoid serialisation of untrusted data
+      JS/TS   : ESLint security plugin; avoid innerHTML; use CSP
+      Go      : gosec; avoid unsafe package; use crypto/rand
+      C/C++   : Compiler hardening flags; avoid unsafe functions (strcpy, gets)
+
+Prohibited practices:
+  ✗ Hard-coded credentials (passwords, API keys, tokens) in source code
+  ✗ SQL string concatenation (use parameterised queries / ORMs)
+  ✗ Trusting client-side input without server-side validation
+  ✗ Storing sensitive data in logs
+  ✗ Using deprecated/broken cryptography (see Cryptography Policy)
+  ✗ eval() with user-supplied input
+
+5. SECURITY TESTING IN CI/CD (A.8.29)
+─────────────────────────────────────────
+All code must pass the following automated checks before merging to main/production:
+
+  SAST (Static Analysis):
+    • Run on every pull request and push
+    • Tools: [Semgrep / Snyk Code / CodeQL / SonarQube]
+    • Critical/High findings: block merge until resolved
+
+  SCA (Software Composition Analysis):
+    • Dependency vulnerability scanning on every build
+    • Tools: [Dependabot / Snyk Open Source / OWASP Dependency-Check]
+    • Critical CVEs in dependencies: block deployment until resolved
+
+  Secret Scanning:
+    • Pre-commit hooks + CI/CD scan on every push
+    • Tools: [Trufflehog / Gitleaks / GitHub Advanced Security]
+    • Any detected secret: block push; treat credential as compromised; rotate immediately
+
+  DAST (Dynamic Analysis):
+    • Run against staging environment before production deployment
+    • Tools: [OWASP ZAP / Burp Suite Enterprise / Nuclei]
+    • Frequency: every release; weekly automated scan
+
+  Container Scanning:
+    • Scan container images before pushing to registry
+    • Tools: [Trivy / Snyk Container / Grype]
+    • Admission controller: verify image signatures before deploying to Kubernetes
+
+6. SECURITY REVIEW
+───────────────────
+Code review: all code changes reviewed by a peer. Security-relevant changes
+(authentication, authorisation, cryptography, input handling) reviewed by a
+security-aware engineer or CISO before merge.
+
+Penetration testing:
+  • New applications: pen test before production launch.
+  • Annual: external pen test of all production web applications.
+  • Significant changes: pen test if attack surface materially changes.
+
+7. ENVIRONMENT SEPARATION (A.8.31)
+────────────────────────────────────
+• Development, test/staging, and production environments strictly separated.
+• Production data must NOT be used in dev or test environments.
+  Masking/synthetic data tools: [Faker / Mimesis / Databricks synthetic data]
+• Developers have no standing access to production (JIT access for break-fix only).
+• Configuration differences between environments are minimised; use
+  environment variables / secret manager, not hard-coded config.
+
+8. OUTSOURCED DEVELOPMENT (A.8.30)
+────────────────────────────────────
+External development teams must:
+  • Comply with this policy and sign an NDA before code access.
+  • Pass security awareness training before project start.
+  • Deliver SBOM with each release.
+  • Submit to code review by internal engineering or approved third-party auditor.
+  • Have source code escrow arrangement if critical supplier.
+
+RECOMMENDATIONS
+─────────────────
+• Adopt a "shift left" approach: security gates in PR review cost 10× less than
+  post-release security fixes, and 100× less than breach remediation.
+• GitHub Advanced Security or GitLab Ultimate includes SAST, SCA, secret scanning
+  and DAST in one platform — evaluate vs. separate tooling.
+• Implement SLSA (Supply-chain Levels for Software Artifacts) — even Level 1
+  (signed builds) materially reduces supply chain risk.
+  Reference: https://slsa.dev
+• Run threat modelling workshops for developers using STRIDE or PASTA — it builds
+  security culture and catches design flaws before a single line is written.
+`
   }
 ];
 
@@ -2945,29 +4384,133 @@ Name:   _________________________ Title: _________________
 let activeCat = 'all';
 let activeTemplate = null;
 
+/* ─── ORDERED STRUCTURE (follows ISO 27001:2022 clause sequence) ─── */
+const CATEGORY_ORDER = {
+  isms: [
+    { id: 'isms-scope',       group: 'Clause 4 — Context of the Organisation' },
+    { id: 'isms-policy',      group: 'Clause 5 — Leadership' },
+    { id: 'isms-soa',         group: 'Clause 6 — Planning' },
+    { id: 'isms-objectives',  group: 'Clause 6 — Planning' },
+  ],
+  risk: [
+    { id: 'risk-methodology',    group: 'Clause 6.1.2 — Risk Assessment Process' },
+    { id: 'risk-asset-register', group: 'Clause 6.1.2 — Risk Assessment Process' },
+    { id: 'risk-register',       group: 'Clause 6.1.2 — Risk Assessment Process' },
+    { id: 'risk-treatment',      group: 'Clause 6.1.3 — Risk Treatment' },
+  ],
+  policy: [
+    // A.5 Organisational Controls
+    { id: 'pol-aup',            group: 'A.5 — Organisational Controls' },
+    { id: 'pol-classification', group: 'A.5 — Organisational Controls' },
+    { id: 'pol-info-transfer',  group: 'A.5 — Organisational Controls' },
+    { id: 'pol-access',         group: 'A.5 — Organisational Controls' },
+    { id: 'pol-supplier',       group: 'A.5 — Organisational Controls' },
+    { id: 'pol-cloud',          group: 'A.5 — Organisational Controls' },
+    { id: 'pol-incident',       group: 'A.5 — Organisational Controls' },
+    { id: 'pol-bcp',            group: 'A.5 — Organisational Controls' },
+    { id: 'pol-privacy',        group: 'A.5 — Organisational Controls' },
+    // A.6 People Controls
+    { id: 'pol-hr-security',    group: 'A.6 — People Controls' },
+    { id: 'pol-nda',            group: 'A.6 — People Controls' },
+    { id: 'pol-remote-work',    group: 'A.6 — People Controls' },
+    // A.7 Physical Controls
+    { id: 'pol-physical-security', group: 'A.7 — Physical Controls' },
+    { id: 'pol-clear-desk',     group: 'A.7 — Physical Controls' },
+    { id: 'pol-media-disposal', group: 'A.7 — Physical Controls' },
+    // A.8 Technological Controls
+    { id: 'pol-endpoint',       group: 'A.8 — Technological Controls' },
+    { id: 'pol-malware',        group: 'A.8 — Technological Controls' },
+    { id: 'pol-backup',         group: 'A.8 — Technological Controls' },
+    { id: 'pol-logging',        group: 'A.8 — Technological Controls' },
+    { id: 'pol-network',        group: 'A.8 — Technological Controls' },
+    { id: 'pol-crypto',         group: 'A.8 — Technological Controls' },
+    { id: 'pol-ssdlc',          group: 'A.8 — Technological Controls' },
+  ],
+  procedure: [
+    { id: 'proc-access',        group: 'Annex A.5 — Organisational Controls' },
+    { id: 'proc-incident',      group: 'Annex A.5 — Organisational Controls' },
+    { id: 'proc-change',        group: 'Annex A.8 — Technological Controls' },
+    { id: 'proc-vulnerability', group: 'Annex A.8 — Technological Controls' },
+  ],
+  record: [
+    { id: 'rec-training',          group: 'Clause 7 — Support' },
+    { id: 'rec-supplier',          group: 'Clause 8 — Operation' },
+    { id: 'rec-audit',             group: 'Clause 9 — Performance Evaluation' },
+    { id: 'rec-management-review', group: 'Clause 9 — Performance Evaluation' },
+    { id: 'rec-corrective-action', group: 'Clause 10 — Improvement' },
+  ],
+};
+
+const CAT_META = {
+  isms:      { label: 'ISMS Core Documents',   clause: 'Clauses 4–6' },
+  risk:      { label: 'Risk Management',        clause: 'Clause 6.1' },
+  policy:    { label: 'Policies',               clause: 'Annex A' },
+  procedure: { label: 'Procedures',             clause: 'Annex A' },
+  record:    { label: 'Records & Checklists',   clause: 'Clauses 7–10' },
+};
+
+function resolveItems(cat) {
+  const keys = cat === 'all' ? ['isms', 'risk', 'policy', 'procedure', 'record'] : [cat];
+  return keys.map(k => ({
+    catKey:   k,
+    catLabel: CAT_META[k].label,
+    catClause:CAT_META[k].clause,
+    showCatHeader: cat === 'all',
+    items: (CATEGORY_ORDER[k] || [])
+      .map(o => ({ ...o, template: TEMPLATES.find(t => t.id === o.id) }))
+      .filter(x => x.template),
+  }));
+}
+
 /* ─── RENDER ─────────────────────────────────────────────── */
 function renderGrid() {
-  const grid = document.getElementById('templateGrid');
-  const filtered = activeCat === 'all' ? TEMPLATES : TEMPLATES.filter(t => t.cat === activeCat);
+  const el = document.getElementById('templateGrid');
+  const sections = resolveItems(activeCat);
+  const total = sections.reduce((n, s) => n + s.items.length, 0);
 
-  if (!filtered.length) {
-    grid.innerHTML = '<div class="empty">No templates in this category.</div>';
+  if (!total) {
+    el.innerHTML = '<div class="empty">No templates in this category.</div>';
     return;
   }
 
-  grid.innerHTML = filtered.map(t => `
-    <div class="tpl-card" onclick="openTemplate('${t.id}')">
-      <div class="tpl-card-top">
-        <span class="tpl-name">${t.name}</span>
-        <span class="tpl-badge badge-${t.tier}">${t.tier}</span>
-      </div>
-      <p class="tpl-desc">${t.desc}</p>
-      <div class="tpl-footer">
-        <span class="tpl-annex">${t.annex}</span>
-        <span class="tpl-open">View Template →</span>
-      </div>
-    </div>
-  `).join('');
+  let html = '';
+  let counter = 0;
+
+  sections.forEach(({ catLabel, catClause, showCatHeader, items }) => {
+    if (showCatHeader)
+      html += `<div class="tpl-cat-header">${catLabel}<span class="tpl-cat-clause">${catClause}</span></div>`;
+
+    let lastGroup = null;
+    items.forEach(({ group, template: t }) => {
+      if (group !== lastGroup) {
+        html += `<div class="tpl-group">${group}</div>`;
+        lastGroup = group;
+      }
+      counter++;
+      const isChecked = checkedDocs.has(t.id);
+      html += `
+        <div class="tpl-row${isChecked ? ' is-checked' : ''}" data-id="${t.id}" onclick="openTemplate('${t.id}')">
+          <label class="tpl-chk" onclick="event.stopPropagation()" title="Mark as reviewed">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCheck('${t.id}', this.checked)">
+            <span class="tpl-chk-box"></span>
+          </label>
+          <span class="tpl-row-num">${String(counter).padStart(2, '0')}</span>
+          <div class="tpl-row-body">
+            <span class="tpl-row-title">${t.name}</span>
+            <div class="tpl-row-meta">
+              <span class="tpl-annex">${t.annex}</span>
+              <span class="tpl-badge badge-${t.tier}">${t.tier}</span>
+            </div>
+            <div class="tpl-row-desc">${t.desc}</div>
+          </div>
+          <div class="tpl-row-right">
+            <span class="tpl-row-action">View →</span>
+          </div>
+        </div>`;
+    });
+  });
+
+  el.innerHTML = html;
 }
 
 /* ─── CATEGORY NAV ───────────────────────────────────────── */
@@ -3114,9 +4657,171 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
+/* ─── CHECKED STATE ──────────────────────────────────────── */
+let checkedDocs = new Set(JSON.parse(localStorage.getItem('iso27001-checked') || '[]'));
+
+function toggleCheck(id, checked) {
+  if (checked) checkedDocs.add(id); else checkedDocs.delete(id);
+  localStorage.setItem('iso27001-checked', JSON.stringify([...checkedDocs]));
+  updateProgress();
+  const row = document.querySelector(`.tpl-row[data-id="${id}"]`);
+  if (row) row.classList.toggle('is-checked', checked);
+  if (checked && checkedDocs.size === TEMPLATES.length) openCertModal();
+}
+
+function updateProgress() {
+  const n = checkedDocs.size, total = TEMPLATES.length;
+  document.getElementById('checkedCount').textContent = n;
+  document.getElementById('progressFill').style.width = total ? `${(n / total) * 100}%` : '0%';
+  const btn = document.getElementById('certTrigger');
+  btn.style.display = n > 0 ? 'flex' : 'none';
+}
+
+function resetChecks() {
+  if (!confirm('Reset all completed marks?')) return;
+  checkedDocs.clear();
+  localStorage.removeItem('iso27001-checked');
+  updateProgress();
+  document.querySelectorAll('.tpl-row.is-checked').forEach(r => r.classList.remove('is-checked'));
+  document.querySelectorAll('.tpl-chk input:checked').forEach(cb => { cb.checked = false; });
+}
+
+/* ─── CERTIFICATE MODAL ──────────────────────────────────── */
+function openCertModal() {
+  document.getElementById('certCount').textContent = `${checkedDocs.size} of ${TEMPLATES.length}`;
+  document.getElementById('certModal').classList.add('open');
+}
+function closeCertModal() { document.getElementById('certModal').classList.remove('open'); }
+
+async function downloadCert() {
+  const org = document.getElementById('certOrgInput').value.trim() || '[Organization Name]';
+  if (typeof window.jspdf === 'undefined') { alert('PDF library not loaded.'); return; }
+  const { jsPDF } = window.jspdf;
+
+  const W = 297, H = 210; // A4 landscape mm
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  // Palette
+  const RED   = [180, 30, 30];
+  const BLACK = [20, 20, 20];
+  const DGRAY = [90, 90, 90];
+  const LGRAY = [180, 180, 180];
+
+  // White background
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, W, H, 'F');
+
+  // Outer red border (double line)
+  doc.setDrawColor(...RED); doc.setLineWidth(1.4);
+  doc.rect(9, 9, W - 18, H - 18);
+  doc.setLineWidth(0.3);
+  doc.rect(12, 12, W - 24, H - 24);
+
+  // Corner dots
+  [[16,16],[W-16,16],[16,H-16],[W-16,H-16]].forEach(([x,y]) => {
+    doc.setFillColor(...RED); doc.circle(x, y, 1.2, 'F');
+  });
+
+  // Header band — light red tint
+  doc.setFillColor(252, 245, 245);
+  doc.rect(12, 12, W - 24, 18, 'F');
+
+  // "CARINO SYSTEMS" header
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+  doc.setTextColor(...RED);
+  doc.text('CARINO SYSTEMS', W / 2, 23, { align: 'center' });
+  doc.setDrawColor(...RED); doc.setLineWidth(0.2);
+  doc.line(W/2 - 38, 26, W/2 + 38, 26);
+
+  // Decorative crest
+  doc.setDrawColor(...RED); doc.setLineWidth(0.5);
+  const cx = W / 2, cy = 37;
+  doc.line(cx, cy - 6, cx + 8, cy);
+  doc.line(cx + 8, cy, cx, cy + 6);
+  doc.line(cx, cy + 6, cx - 8, cy);
+  doc.line(cx - 8, cy, cx, cy - 6);
+  doc.setLineWidth(0.3);
+  doc.line(cx - 5, cy, cx + 5, cy);
+  doc.line(cx, cy - 4, cx, cy + 4);
+  doc.setFillColor(...RED);
+  doc.circle(cx - 14, cy, 1, 'F');
+  doc.circle(cx + 14, cy, 1, 'F');
+
+  // Main title — black
+  doc.setFontSize(20); doc.setTextColor(...BLACK); doc.setFont('helvetica', 'bold');
+  doc.text('ISMS DOCUMENTATION COMPLETENESS RECORD', W / 2, 54, { align: 'center' });
+
+  // Subtitle — red
+  doc.setFontSize(14); doc.setTextColor(...RED); doc.setFont('helvetica', 'normal');
+  doc.text('ISO/IEC 27001:2022 - Information Security Management Systems', W / 2, 63, { align: 'center' });
+
+  // Separator — light gray
+  doc.setDrawColor(...LGRAY); doc.setLineWidth(0.3);
+  doc.line(30, 67, W - 30, 67);
+
+  // Body text — dark gray
+  doc.setFontSize(11); doc.setTextColor(...DGRAY);
+  doc.text('This record confirms that all ISMS documentation templates have been reviewed by', W / 2, 77, { align: 'center' });
+
+  // Org name — black bold
+  doc.setFontSize(22); doc.setTextColor(...BLACK); doc.setFont('helvetica', 'bold');
+  doc.text(org, W / 2, 92, { align: 'center' });
+
+  // Underline org name — red
+  const orgW = doc.getTextWidth(org);
+  doc.setDrawColor(...RED); doc.setLineWidth(0.5);
+  doc.line(W/2 - orgW/2, 95, W/2 + orgW/2, 95);
+
+  // Date + count — dark gray
+  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  doc.setFontSize(10); doc.setTextColor(...DGRAY); doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${today}`, W / 2 - 28, 104, { align: 'center' });
+  doc.text(`|`, W / 2, 104, { align: 'center' });
+  doc.setTextColor(...RED);
+  doc.text(`${checkedDocs.size} of ${TEMPLATES.length} Templates Completed`, W / 2 + 28, 104, { align: 'center' });
+
+  // Disclaimer box — compact
+  doc.setFillColor(254, 242, 242); doc.setDrawColor(...RED); doc.setLineWidth(0.5);
+  doc.roundedRect(28, 115, W - 56, 22, 2, 2, 'FD');
+
+  doc.setFontSize(8.5); doc.setTextColor(...RED); doc.setFont('helvetica', 'bold');
+  doc.text('[!]  DISCLAIMER - FOR INTERNAL TRACKING ONLY', W / 2, 123, { align: 'center' });
+
+  doc.setFontSize(8); doc.setTextColor(100, 30, 30); doc.setFont('helvetica', 'normal');
+  doc.text('This is not a formal ISO/IEC 27001 certification. Certification requires an audit by an IAF-accredited Certification Body (CB).', W / 2, 131, { align: 'center' });
+
+  doc.save(`ISMS_Documentation_Record_${org.replace(/[^a-z0-9]/gi,'_')}.pdf`);
+}
+
 /* ─── INIT ───────────────────────────────────────────────── */
 document.getElementById('totalCount').textContent = TEMPLATES.length;
+document.getElementById('totalCount2').textContent = TEMPLATES.length;
+updateProgress();
 renderGrid();
 </script>
+
+<!-- Certificate Modal -->
+<div class="cert-overlay" id="certModal" onclick="if(event.target===this)closeCertModal()">
+  <div class="cert-box">
+    <div class="cert-icon">🏅</div>
+    <div class="cert-title">Documentation Complete</div>
+    <p class="cert-subtitle">
+      All <strong style="color:var(--accent)" id="certCount"></strong> ISMS templates have been marked as reviewed.<br>
+      Enter your organisation name to generate the completion record.
+    </p>
+    <input class="cert-input" id="certOrgInput" type="text" placeholder="Organisation Name" maxlength="80">
+    <button class="cert-dl-btn" onclick="downloadCert()">↓ Download Certificate (PDF)</button>
+    <div class="cert-disclaimer">
+      <strong style="color:#dc2626">⚠ No formal validation.</strong> This PDF is for internal documentation tracking only
+      and carries <strong>no certification, accreditation, or formal validation</strong> under ISO/IEC 27001:2022 or any
+      other standard. Formal ISO 27001 certification requires an audit by an IAF-accredited Certification Body (CB).
+    </div>
+    <div style="display:flex;gap:10px;justify-content:space-between;align-items:center">
+      <button class="cert-close" onclick="resetChecks();closeCertModal()">Reset All Marks</button>
+      <button class="cert-close" onclick="closeCertModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
