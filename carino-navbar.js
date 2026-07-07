@@ -6,20 +6,23 @@
      <script src="carino-navbar.js" data-app="AppName" defer></script>
 
    It injects its own (scoped) styles + the canonical top-header
-   markup, then runs the live clock and greeting. Fully self-
-   contained — no external deps, no dependency on the app's own CSS.
-   All styles are scoped under #carinoNav so nothing leaks into
-   (or clashes with) the app.
+   markup and runs the greeting. The live CLOCK (Local/UTC/Epoch/
+   TAI/.beats + click-to-cycle) lives in the companion file
+   carino-clock.js, which this script loads from the SAME site — both
+   files ship together in every project, so there is no external/CDN
+   dependency and each site works standalone/offline. To change the
+   clock, edit carino-clock.js and re-copy it to each site (see
+   propagate.sh). All styles are scoped under #carinoNav so nothing
+   leaks into (or clashes with) the app.
 
-   Clock: click it to cycle Local -> UTC -> Epoch; the yellow tz
-   chip shows the zone name, then "UTC", then "EPOCH". The Status
-   diagnostics dropdown lives only on carino.systems itself — every
-   sub-project's navbar omits it.
+   The Status diagnostics dropdown lives only on carino.systems
+   itself — every sub-project's navbar omits it.
    ============================================================ */
 (function () {
   'use strict';
 
   var TAG = (document.currentScript && document.currentScript.getAttribute('data-app')) || '';
+  var CLOCK_SRC = 'carino-clock.js'; // local copy shipped in each site (no CDN)
 
   var CSS = ''
     + '#carinoNav{--cn-accent:#eab308;--cn-bg:#050505;--cn-border:#262626;--cn-text:#fff;--cn-muted:#8a8a8a;'
@@ -61,9 +64,9 @@
     + '<header class="top-header" id="carinoNav">'
     + '<div class="cn-left">'
     + '<a class="brand-name" href="https://carino.systems/" title="Carino Systems — back to hub">Carino<span class="app-tag"></span></a>'
-    + '<div class="header-clock" id="cnClockWrap" role="button" tabindex="0" title="Click to toggle Local / UTC / Epoch">'
-    + '<span class="clock-time" id="cnClock">00:00:00</span>'
-    + '<span class="clock-tz" id="cnTz">LOCAL</span>'
+    + '<div class="header-clock">'
+    + '<span class="clock-time">00:00:00</span>'
+    + '<span class="clock-tz">LOCAL</span>'
     + '<span class="brand-greeting" id="cnGreeting">Ready.</span>'
     + '</div></div>'
     + '<div class="cn-right">'
@@ -75,38 +78,20 @@
     + '</header>';
 
   function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
-  function pad(n) { return String(n).padStart(2, '0'); }
 
-  // Clock display modes: 0 = local, 1 = UTC, 2 = epoch. Click to cycle.
-  var clockMode = 0;
-  var localTz = 'LOCAL';
-  try { localTz = (Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop() || 'LOCAL'); } catch (e) { localTz = 'LOCAL'; }
-
-  function tick() {
-    var d = new Date();
-    var time, tz;
-    if (clockMode === 1) {
-      time = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
-      tz = 'UTC';
-    } else if (clockMode === 2) {
-      time = String(Math.floor(d.getTime() / 1000));
-      tz = 'EPOCH';
-    } else {
-      time = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-      tz = localTz;
-    }
-    set('cnClock', time);
-    set('cnTz', tz);
-    var h = d.getHours();
+  // Greeting stays local to the navbar; the clock is owned by carino-clock.js.
+  function greet() {
+    var h = new Date().getHours();
     set('cnGreeting', h < 5 ? 'Late shift.' : h < 12 ? 'Good morning.' : h < 18 ? 'Good afternoon.' : 'Good evening.');
   }
 
-  function wireClock() {
-    var wrap = document.getElementById('cnClockWrap');
-    if (!wrap) return;
-    function cycle() { clockMode = (clockMode + 1) % 3; tick(); }
-    wrap.addEventListener('click', cycle);
-    wrap.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycle(); } });
+  function loadClockModule() {
+    if (document.querySelector('script[data-carino-clock]')) return;
+    var s = document.createElement('script');
+    s.src = CLOCK_SRC;
+    s.async = true;
+    s.setAttribute('data-carino-clock', '');
+    document.head.appendChild(s);
   }
 
   // Move an app's own header controls INTO the navbar's right cluster so there
@@ -142,9 +127,9 @@
     document.body.insertBefore(nav, document.body.firstChild);
     if (TAG) { var t = nav.querySelector('.app-tag'); if (t) t.textContent = TAG; }
     relocateActions(nav);
-    wireClock();
-    tick();
-    setInterval(tick, 1000);
+    greet();
+    setInterval(greet, 60000);
+    loadClockModule();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', inject);
